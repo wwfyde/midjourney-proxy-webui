@@ -29,6 +29,7 @@ export default {
   'menu.list.user-list': '用户管理',
   'menu.task-list': '任务查询',
   'menu.draw-test': '绘画测试',
+  'menu.draw': '绘画',
   'menu.setting': '系统设置',
   'menu.probe': '日志查看',
   'menu.activate': '服务激活',

@@ -97,7 +97,7 @@ const Login: React.FC = () => {
               currentUser: userInfo,
             }));
           });
-          location.hash = '#/welcome';
+          location.hash = '#/draw';
         }
         return;
       }
