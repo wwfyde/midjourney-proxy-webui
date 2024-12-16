@@ -188,7 +188,7 @@ const Login: React.FC = () => {
               maxWidth: '75vw',
               height: 'auto',
             }}
-            title="Midjourney Proxy Admin"
+            title="Midjourney"
             subTitle={intl.formatMessage({ id: 'pages.layouts.userLayout.title' })}
             initialValues={{
               autoLogin: true,

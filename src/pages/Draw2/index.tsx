@@ -8,8 +8,13 @@ import {
   swapFace,
   swapVideoFace,
 } from '@/services/mj/api';
-import { ClearOutlined, CloseCircleOutlined, PlusOutlined } from '@ant-design/icons';
-import { PageContainer } from '@ant-design/pro-components';
+import {
+  ClearOutlined,
+  CloseCircleOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
+  PlusOutlined,
+} from '@ant-design/icons';
 import { useIntl } from '@umijs/max';
 import type { RadioChangeEvent } from 'antd';
 import {
@@ -19,6 +24,7 @@ import {
   Flex,
   Image as AntdImage,
   Input,
+  Layout,
   message,
   Modal,
   notification,
@@ -33,14 +39,17 @@ import {
 import type { RcFile, UploadFile, UploadProps } from 'antd/es/upload/interface';
 import React, { useEffect, useRef, useState } from 'react';
 import Markdown from 'react-markdown';
+import ChannelList from './components/ChannelList';
 import styles from './index.less';
+
+const { Sider, Content } = Layout;
 
 const { TextArea } = Input;
 const { Meta } = Card;
 
 const Draw: React.FC = () => {
   const [api, contextHolder] = notification.useNotification();
-  const [tasks, setTasks] = useState<any[]>([]);
+  const [tasks, setTasks] = useState<any[]>([]); // 从旧到新的一个任务序列
   const [dataLoading, setDataLoading] = useState(false);
 
   const [action, setAction] = useState('imagine');
@@ -66,41 +75,44 @@ const Draw: React.FC = () => {
   const [loadingModal, setLoadingModal] = useState(false);
 
   const [accounts, setAccounts] = useState([]);
+
+  // 当前选中的账号
   const [curAccount, setCurAccount] = useState<string>();
+
+  // TODO 增加任务过滤器来实现, 查看不同频道下的任务
+  const [filteredTasks, setFilteredTasks] = useState<any[]>([]);
+
+  const [collapsed, setCollapsed] = useState(false);
 
   const intl = useIntl();
 
   const cbSaver = useRef<any[]>([]);
+
+  // 分页和加载更多支持
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loading, setLoading] = useState(false);
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+
   const syncRunningTasksFutureRef = useRef<NodeJS.Timeout | null>(null);
 
   const customState = 'midjourney-proxy-admin';
   const imagePrefix = sessionStorage.getItem('mj-image-prefix') || '';
 
-  useEffect(() => {
-    fetchData({
-      state: customState,
-      pageNumber: 0,
-      pageSize: 3,
-      statusSet: ['NOT_START', 'SUBMITTED', 'IN_PROGRESS', 'FAILURE', 'SUCCESS'],
-      sort: 'submitTime,desc',
-    });
+  const toggleCollapse = () => {
+    setCollapsed(!collapsed);
+  };
 
-    if (syncRunningTasksFutureRef.current) {
-      clearInterval(syncRunningTasksFutureRef.current);
-    }
-
-    syncRunningTasksFutureRef.current = setInterval(() => {
-      if (waitTaskIds.size === 0) return;
-      syncRunningTasks();
-    }, 2000);
-
-    return () => {
-      if (syncRunningTasksFutureRef.current) {
-        clearInterval(syncRunningTasksFutureRef.current);
-        syncRunningTasksFutureRef.current = null;
-      }
-    };
-  }, []);
+  // // 根据频道过滤任务
+  // useEffect(() => {
+  //   if (curAccount === 'all') {
+  //     setFilteredTasks(tasks);
+  //     return;
+  //   }
+  //   const filtered = tasks.filter((channelId) => channelId === selectedChannel);
+  //   setFilteredTasks(filtered);
+  // }, [curAccount, tasks]);
 
   const syncRunningTasks = async () => {
     const taskIds = Array.from(waitTaskIds);
@@ -146,7 +158,7 @@ const Draw: React.FC = () => {
     }, 20);
   };
 
-  const fetchData = async (params: any) => {
+  const fetchData = async (params: any): Promise<any[]> => {
     setDataLoading(true);
 
     const accs = await queryAccount();
@@ -160,9 +172,13 @@ const Draw: React.FC = () => {
       }
     }
     cbSaver.current = array;
-    setTasks(array);
+    // setTasks(array);
     setDataLoading(false);
-    scrollToBottom();
+    // 仅在首次加载时, 滚动到底部
+    if (params.current === 1) {
+      scrollToBottom();
+    }
+    return array;
   };
 
   const handleActionChange = (value: string) => {
@@ -171,8 +187,69 @@ const Draw: React.FC = () => {
     setImages([]);
   };
 
-  const handleAccountChange = (value: string) => {
-    setCurAccount(value);
+  // 加载更多数据
+  const loadMoreData = async () => {
+    console.log('loading || !hasMore', loading || !hasMore);
+    console.log('loading ', loading);
+    console.log('hasMore ', hasMore);
+    if (loading || !hasMore) {
+      console.log('return');
+      message.info('没有更多数据');
+      return;
+    }
+    setLoading(true);
+
+    try {
+      const newTasks = await fetchData({
+        state: customState,
+        current: page + 1,
+        pageSize: 10,
+        instanceId: curAccount,
+        statusSet: ['NOT_START', 'SUBMITTED', 'IN_PROGRESS', 'FAILURE', 'SUCCESS'],
+        sort: 'submitTime,desc',
+      });
+      if (newTasks.length > 0) {
+        // 反转 newTasks
+        setTasks((prevTasks) => [...newTasks, ...prevTasks]);
+        setHasMore(true);
+      } else {
+        setHasMore(false);
+        message.warning('没有更多数据');
+      }
+    } catch (error) {
+      message.error('加载失败??');
+      // setHasMore(true);
+    } finally {
+      setLoading(false);
+      setPage(page + 1);
+    }
+  };
+  // 监听滚动事件
+  const handleScroll = () => {
+    const scrollElement = scrollRef.current;
+    if (scrollElement && scrollElement.scrollTop === 0) {
+      message.warning('触发滚动事件');
+      loadMoreData(); // TODO 暂时禁用
+    }
+  };
+  const handleAccountChange = async (value: string) => {
+    if (value === 'all') {
+      setCurAccount(undefined);
+    } else {
+      setCurAccount(value);
+      const newTasks = await fetchData({
+        state: customState,
+        current: 1,
+        pageSize: 10,
+        instanceId: value,
+        statusSet: ['NOT_START', 'SUBMITTED', 'IN_PROGRESS', 'FAILURE', 'SUCCESS'],
+        sort: 'submitTime,desc',
+      });
+      setTasks(newTasks);
+      setPage(1); // 每次切换账号后, 重置分页
+      setHasMore(true); // 每次切换账号后, 重置更多状态
+    }
+    // TODO 可能需要重置更多状态
   };
 
   const handleBotTypeChange = ({ target: { value } }: RadioChangeEvent) => {
@@ -677,7 +754,7 @@ const Draw: React.FC = () => {
   };
 
   const taskCardList = () => {
-    return tasks.map((task: any) => {
+    return filteredTasks.map((task: any) => {
       let avatar = './midjourney.webp';
       if (task.botType === 'NIJI_JOURNEY') {
         avatar = './niji.webp';
@@ -692,7 +769,12 @@ const Draw: React.FC = () => {
         <Card
           bordered={false}
           key={task.id}
-          bodyStyle={{ backgroundColor: '#eaeaea', marginBottom: '10px' }}
+          styles={{
+            body: {
+              backgroundColor: '#eaeaea',
+              marginBottom: '10px',
+            },
+          }}
         >
           <Meta
             avatar={<Avatar src={avatar} />}
@@ -946,7 +1028,7 @@ const Draw: React.FC = () => {
       return (
         <Flex vertical>
           <Upload {...props} listType="picture-card">
-            {images.length >= 5 ? null : uploadButton}
+            {images.length >= 5 ? null : <Button icon={<PlusOutlined />}>上传图片</Button>}
           </Upload>
           <Flex style={{ width: '100%', marginTop: '10px' }} gap={6}>
             <TextArea
@@ -1129,6 +1211,7 @@ const Draw: React.FC = () => {
     },
   };
 
+  // 参数切换区
   const switchArea = () => {
     let options;
     let isFace = false;
@@ -1162,24 +1245,24 @@ const Draw: React.FC = () => {
           options={options}
         />
 
-        <Select
+        {/* <Select
           value={curAccount}
           style={{ width: 320 }}
           onChange={handleAccountChange}
           options={accountOpts}
           allowClear
           placeholder={intl.formatMessage({ id: 'pages.draw.selectAccount' })}
-        />
+        /> */}
 
         <Radio.Group
           value={botType}
           onChange={handleBotTypeChange}
           options={[
             { value: 'MID_JOURNEY', label: 'Midjourney' },
-            { value: 'NIJI_JOURNEY', label: 'niji・journey' },
+            // { value: 'NIJI_JOURNEY', label: 'niji・journey' },
             // { value: 'INSIGHT_FACE', label: 'InsightFace' },
-            { value: 'FACE_SWAP', label: 'FaceSwap' },
-            { value: 'VIDEO_FACE_SWAP', label: 'Video・FaceSwap' },
+            // { value: 'FACE_SWAP', label: 'FaceSwap' },
+            // { value: 'VIDEO_FACE_SWAP', label: 'Video・FaceSwap' },
           ]}
           optionType="button"
         />
@@ -1187,31 +1270,238 @@ const Draw: React.FC = () => {
     );
   };
 
+  // 根据选中的账号过滤任务
+  useEffect(() => {
+    if (!curAccount) {
+      setFilteredTasks(tasks); // 如果没有选择账号，显示所有任务
+      return;
+    }
+
+    // 根据选中的账号过滤任务
+    const filtered = tasks.filter((task) => task.instanceId === curAccount);
+    setFilteredTasks(filtered);
+  }, [curAccount, tasks]);
+
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      const aTasks = await fetchData({
+        state: customState,
+        current: 1,
+        pageSize: 10,
+        statusSet: ['NOT_START', 'SUBMITTED', 'IN_PROGRESS', 'FAILURE', 'SUCCESS'],
+        sort: 'submitTime,desc',
+      });
+      setTasks(aTasks);
+    };
+
+    fetchInitialData();
+
+    if (syncRunningTasksFutureRef.current) {
+      clearInterval(syncRunningTasksFutureRef.current);
+    }
+
+    syncRunningTasksFutureRef.current = setInterval(() => {
+      if (waitTaskIds.size === 0) return;
+      syncRunningTasks();
+    }, 2000);
+
+    return () => {
+      if (syncRunningTasksFutureRef.current) {
+        clearInterval(syncRunningTasksFutureRef.current);
+        syncRunningTasksFutureRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const scrollElement = scrollRef.current;
+    if (scrollElement) {
+      scrollElement.addEventListener('scroll', handleScroll);
+      return () => scrollElement.removeEventListener('scroll', handleScroll);
+    }
+  }, [handleScroll]);
+
   return (
-    <PageContainer>
-      {contextHolder}
-      <Card
-        style={{ marginBottom: '15px', overflow: 'auto', height: '70vh' }}
-        loading={dataLoading}
-        id="task-panel"
+    // <div
+    //   id="draw-container"
+    //   style={{
+    //     // display: 'flex',
+    //     // flexDirection: 'column',
+    //     // height: '100vh',
+    //     // paddingTop: '48px',
+    //     height: '100%',
+    //     // height: 'calc(100vh - 48px)', // 减去顶部 header 的高度
+    //     overflow: 'hidden',
+    //   }}
+    // >
+    <Layout
+      // className={`flex flex-col ml-[200px]`}
+      style={{
+        // paddingTop: '48px',
+        // height: '100%',
+        // minHeight: '100%',
+        // overflow: 'auto',
+        // marginTop: '56px',
+
+        height: '100vh', // 减去顶部 header 的高度
+        // flex: '1 1 0%',
+        overflow: 'hidden',
+      }}
+    >
+      {/* <Header style={{ background: '#fff', padding: 0 }}>
+       
+      </Header> */}
+      <Sider
+        collapsible
+        collapsed={collapsed}
+        onCollapse={(value) => setCollapsed(value)} // 折叠状态改变时的回调
+        width={300}
+        collapsedWidth={80}
+        trigger={null} // 隐藏默认触发器
+        style={{
+          borderRight: '1px solid #f0f0f0',
+          background: '#fafafa',
+          // minHeight: '100%',
+          // position: 'sticky',
+          // top: 48,
+          maxHeight: 'calc(100vh - 56px)',
+          // height: 'calc(100vh - 56px)',
+          flexDirection: 'column',
+          overflow: 'auto',
+
+          // flex: '1 1 0%',
+          // overflow: 'hidden auto',
+          // top: 48,
+        }}
       >
-        {taskCardList()}
-      </Card>
-      <Card>
-        {switchArea()}
-        {actionArea()}
-      </Card>
-      <Modal
-        title={modalTitle}
-        open={modalVisible}
-        onCancel={cancelModal}
-        onOk={submitModal}
-        confirmLoading={loadingModal}
-        width={600}
+        <div
+          style={{
+            height: '48px',
+            lineHeight: '48px',
+            cursor: 'pointer',
+            fontSize: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '0 16px',
+            borderBottom: '1px solid #f0f0f0',
+          }}
+          onClick={() => setCollapsed(!collapsed)}
+        >
+          {/* 左侧Logo或标题 */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              opacity: collapsed ? 0 : 1,
+              transition: 'opacity 0.2s',
+            }}
+          >
+            <img src="./midjourney.webp" alt="logo" style={{ width: 20, marginRight: 8 }} />
+            {!collapsed && <span>频道列表</span>}
+          </div>
+
+          {/* 右侧折叠按钮 */}
+          <Button
+            type="text"
+            icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+            onClick={toggleCollapse}
+            style={{ fontSize: '16px' }}
+          />
+        </div>
+
+        {/* <Button
+          type="text"
+          icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+          onClick={toggleCollapse}
+        /> */}
+        <ChannelList
+          accounts={accounts}
+          curAccount={curAccount}
+          onAccountChange={handleAccountChange}
+        />
+      </Sider>
+      <Content
+        style={{
+          // marginLeft: collapsed ? '80px' : '300px',
+          // marginTop: '48px',
+          height: '100vh',
+          display: 'flex',
+          // flex: 1,
+          flexDirection: 'column',
+          // padding: '20px',
+          overflow: 'auto',
+        }}
       >
-        {confirmModal()}
-      </Modal>
-    </PageContainer>
+        {/* <div
+          style={{
+            display: 'flex',
+            // flex: '1 1 0%',
+            flex: '1 1 0%',
+            flexDirection: 'column',
+            height: '100%',
+            overflow: 'auto',
+          }}
+        > */}
+        {contextHolder}
+        {/* 任务面板 */}
+        <Card
+          ref={scrollRef} // 增加滚动触发器
+          style={{
+            // marginBottom: '15px',
+            overflow: 'auto',
+            flex: '1 1 0%',
+            // flexDirection: 'column',
+          }}
+          loading={dataLoading}
+          id="task-panel"
+        >
+          {/* TODO 记录列表 */}
+          {loading && (
+            <div style={{ textAlign: 'center', padding: '10px' }}>
+              <Spin />
+            </div>
+          )}
+          {!hasMore && (
+            <div style={{ textAlign: 'center', padding: '10px' }}>
+              {/* <Spin /> */}
+              所有数据已加载完毕
+            </div>
+          )}
+          {taskCardList()}
+        </Card>
+        <Card
+          style={{
+            // left: collapsed ? '80px' : '300px', // 根据 Sider 宽度调整
+            // width: `calc(100% - ${collapsed ? '80px' : '300px'})`, // 动态计算宽度
+            // width: '100%', // 动态计算宽度
+            marginBottom: '56px',
+            padding: 0,
+            flexShrink: 1,
+            // height: '100px',
+            // minHeight: '100px',
+            // width: '100%',
+            // flex: '0 0 auto',
+            // marginTop: 'auto',
+          }}
+        >
+          {switchArea()}
+          {actionArea()}
+        </Card>
+        <Modal
+          title={modalTitle}
+          open={modalVisible}
+          onCancel={cancelModal}
+          onOk={submitModal}
+          confirmLoading={loadingModal}
+          width={600}
+        >
+          {confirmModal()}
+        </Modal>
+        {/* </div> */}
+      </Content>
+    </Layout>
+    // </div>
   );
 };
 
