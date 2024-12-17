@@ -14,9 +14,9 @@ import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   PlusOutlined,
+  UploadOutlined,
 } from '@ant-design/icons';
 import { useIntl } from '@umijs/max';
-import type { RadioChangeEvent } from 'antd';
 import {
   Avatar,
   Button,
@@ -37,7 +37,7 @@ import {
   Upload,
 } from 'antd';
 import type { RcFile, UploadFile, UploadProps } from 'antd/es/upload/interface';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Markdown from 'react-markdown';
 import ChannelList from './components/ChannelList';
 import styles from './index.less';
@@ -77,7 +77,9 @@ const Draw: React.FC = () => {
   const [accounts, setAccounts] = useState([]);
 
   // 当前选中的账号
-  const [curAccount, setCurAccount] = useState<string>();
+  const [curAccount, setCurAccount] = useState<string>(() => {
+    return localStorage.getItem('selectedAccount') || '';
+  });
 
   // TODO 增加任务过滤器来实现, 查看不同频道下的任务
   const [filteredTasks, setFilteredTasks] = useState<any[]>([]);
@@ -86,7 +88,7 @@ const Draw: React.FC = () => {
 
   const intl = useIntl();
 
-  const cbSaver = useRef<any[]>([]);
+  const cbSaver = useRef<any[]>([]); // 回调任务缓存器
 
   // 分页和加载更多支持
   const [page, setPage] = useState(1);
@@ -99,10 +101,6 @@ const Draw: React.FC = () => {
 
   const customState = 'midjourney-proxy-admin';
   const imagePrefix = sessionStorage.getItem('mj-image-prefix') || '';
-
-  const toggleCollapse = () => {
-    setCollapsed(!collapsed);
-  };
 
   // // 根据频道过滤任务
   // useEffect(() => {
@@ -117,6 +115,7 @@ const Draw: React.FC = () => {
   const syncRunningTasks = async () => {
     const taskIds = Array.from(waitTaskIds);
     const tmpTaskIds = new Set(taskIds);
+    if (taskIds.length === 0) return; // 如果没有运行中的任务, 直接返回
     const array = await queryTaskByIds(taskIds);
     let hasChange = false;
     const targetTasks = [...cbSaver.current];
@@ -137,9 +136,15 @@ const Draw: React.FC = () => {
     for (const needRemoveId of tmpTaskIds) {
       waitTaskIds.delete(needRemoveId);
     }
+
+    // TODO 需要优化
     if (hasChange) {
       cbSaver.current = targetTasks;
       setTasks(targetTasks);
+      // 可选：只在新增任务时滚动到底部
+      // if (targetTasks.length > cbSaver.current.length) {
+      //   scrollToBottom();
+      // }
       scrollToBottom();
     }
   };
@@ -232,33 +237,46 @@ const Draw: React.FC = () => {
       loadMoreData(); // TODO 暂时禁用
     }
   };
-  const handleAccountChange = async (value: string) => {
-    if (value === 'all') {
-      setCurAccount(undefined);
-    } else {
-      setCurAccount(value);
-      const newTasks = await fetchData({
-        state: customState,
-        current: 1,
-        pageSize: 10,
-        instanceId: value,
-        statusSet: ['NOT_START', 'SUBMITTED', 'IN_PROGRESS', 'FAILURE', 'SUCCESS'],
-        sort: 'submitTime,desc',
-      });
-      setTasks(newTasks);
-      setPage(1); // 每次切换账号后, 重置分页
-      setHasMore(true); // 每次切换账号后, 重置更多状态
-    }
-    // TODO 可能需要重置更多状态
-  };
+  // const clearScrollListener = useCallback(() => {
+  //   if (scrollRef.current) {
+  //     scrollRef.current.removeEventListener('scroll', handleScroll);
+  //   }
+  // }, []);
+  const handleAccountChange = useCallback(
+    async (value: string) => {
+      // clearScrollListener(); // 先清除滚动监听
 
-  const handleBotTypeChange = ({ target: { value } }: RadioChangeEvent) => {
+      if (value === curAccount) return;
+      if (value === 'all') {
+        setCurAccount('');
+        localStorage.removeItem('selectedAccount');
+      } else {
+        setCurAccount(value);
+        localStorage.setItem('selectedAccount', value);
+        const newTasks = await fetchData({
+          state: customState,
+          current: 1,
+          pageSize: 10,
+          instanceId: value,
+          statusSet: ['NOT_START', 'SUBMITTED', 'IN_PROGRESS', 'FAILURE', 'SUCCESS'],
+          sort: 'submitTime,desc',
+        });
+        setTasks(newTasks);
+        setPage(1); // 每次切换账号后, 重置分页
+        setHasMore(true); // 每次切换账号后, 重置更多状态
+      }
+      // TODO 可能需要重置更多状态
+    },
+    [curAccount],
+  );
+
+  const handleBotTypeChange = (value: string) => {
     setBotType(value);
     setPrompt('');
     setImages([]);
   };
 
-  const handleDimensionsChange = ({ target: { value } }: RadioChangeEvent) => {
+  const handleDimensionsChange = (value: string) => {
     setDimensions(value);
   };
 
@@ -921,6 +939,43 @@ const Draw: React.FC = () => {
   };
 
   const actionArea = () => {
+    let options;
+    let isFace = false;
+    if (botType === 'INSIGHT_FACE' || botType === 'FACE_SWAP' || botType === 'VIDEO_FACE_SWAP') {
+      isFace = true;
+      options = [{ value: 'swap', label: '/swap' }];
+    } else {
+      options = [
+        { value: 'imagine', label: '/imagine' },
+        { value: 'blend', label: '/blend' },
+        { value: 'describe', label: '/describe' },
+        { value: 'shorten', label: '/shorten' },
+        { value: 'showjobid', label: '/show job_id' },
+        { value: 'show', label: '/show task_id' },
+      ];
+    }
+    let bot_options = [
+      {
+        value: 'MID_JOURNEY',
+        label: 'Midjourney',
+      },
+      {
+        value: 'NIJI_JOURNEY',
+        label: 'niji・journey',
+      },
+      // {
+      //   value: 'INSIGHT_FACE',
+      //   label: 'InsightFace',
+      // },
+      // {
+      //   value: 'FACE_SWAP',
+      //   label: 'FaceSwap',
+      // },
+      // {
+      //   value: 'VIDEO_FACE_SWAP',
+      //   label: 'Video・FaceSwap',
+      // },
+    ];
     if (botType === 'INSIGHT_FACE' || botType === 'FACE_SWAP') {
       return (
         <Flex vertical gap={8}>
@@ -999,6 +1054,20 @@ const Draw: React.FC = () => {
     } else if (action === 'show') {
       return (
         <Space.Compact style={{ width: '100%' }}>
+          <Select
+            value={botType}
+            onChange={handleBotTypeChange}
+            defaultValue="MID_JOURNEY"
+            style={{ width: 120 }} // 调整宽度
+            options={bot_options}
+          />
+
+          <Select
+            value={isFace ? 'swap' : action}
+            style={{ width: 150 }}
+            onChange={handleActionChange}
+            options={options}
+          />
           <Input
             placeholder={intl.formatMessage({ id: 'pages.draw.inputIdShow' })}
             value={prompt}
@@ -1013,6 +1082,20 @@ const Draw: React.FC = () => {
     } else if (action === 'showjobid') {
       return (
         <Space.Compact style={{ width: '100%' }}>
+          <Select
+            value={botType}
+            onChange={handleBotTypeChange}
+            defaultValue="MID_JOURNEY"
+            style={{ width: 120 }} // 调整宽度
+            options={bot_options}
+          />
+
+          <Select
+            value={isFace ? 'swap' : action}
+            style={{ width: 150 }}
+            onChange={handleActionChange}
+            options={options}
+          />
           <Input
             placeholder={intl.formatMessage({ id: 'pages.draw.inputJobIdShow' })}
             value={prompt}
@@ -1026,55 +1109,100 @@ const Draw: React.FC = () => {
       );
     } else if (action === 'imagine') {
       return (
-        <Flex vertical>
-          <Upload {...props} listType="picture-card">
-            {images.length >= 5 ? null : <Button icon={<PlusOutlined />}>上传图片</Button>}
+        <Flex gap="small" align="center">
+          <Select
+            value={botType}
+            onChange={handleBotTypeChange}
+            defaultValue="MID_JOURNEY"
+            style={{ width: 120 }} // 调整宽度
+            options={bot_options}
+          />
+
+          <Select
+            value={isFace ? 'swap' : action}
+            style={{ width: 150 }}
+            onChange={handleActionChange}
+            options={options}
+          />
+          <Upload {...props}>
+            {images.length >= 5 ? null : <Button icon={<UploadOutlined />}>上传</Button>}
           </Upload>
-          <Flex style={{ width: '100%', marginTop: '10px' }} gap={6}>
-            <TextArea
-              placeholder="Prompt"
-              value={prompt}
-              onChange={handlePromptChange}
-              onPressEnter={submit}
-              autoSize={{ minRows: 1, maxRows: 12 }}
-            />
-            <Button type="primary" onClick={submit} loading={submitLoading}>
-              {intl.formatMessage({ id: 'pages.draw.submitTask' })}
-            </Button>
-          </Flex>
+          {/* <Flex style={{ width: '100%', marginTop: '10px' }} gap={6}> */}
+          <TextArea
+            placeholder="Prompt"
+            value={prompt}
+            onChange={handlePromptChange}
+            onPressEnter={submit}
+            autoSize={{ minRows: 1, maxRows: 12 }}
+          />
+          <Button type="primary" onClick={submit} loading={submitLoading}>
+            {intl.formatMessage({ id: 'pages.draw.submitTask' })}
+          </Button>
+          {/* </Flex> */}
         </Flex>
       );
     } else if (action === 'blend') {
       return (
-        <Flex vertical>
-          <Upload {...props} listType="picture-card">
+        <Flex gap="small" align="center">
+          <Select
+            value={botType}
+            onChange={handleBotTypeChange}
+            defaultValue="MID_JOURNEY"
+            style={{ width: 120 }} // 调整宽度
+            options={bot_options}
+          />
+          <Select
+            value={isFace ? 'swap' : action}
+            style={{ width: 150 }}
+            onChange={handleActionChange}
+            options={options}
+          />
+          {/* <Upload {...props} listType="picture-card">
             {images.length >= 5 ? null : uploadButton}
+          </Upload> */}
+          <Upload {...props}>
+            {images.length >= 5 ? null : <Button icon={<UploadOutlined />}>上传</Button>}
           </Upload>
-          <Space style={{ width: '100%', marginTop: '10px' }}>
-            <Radio.Group
-              value={dimensions}
-              onChange={handleDimensionsChange}
-              options={[
-                { value: 'PORTRAIT', label: intl.formatMessage({ id: 'pages.draw.PORTRAIT' }) },
-                { value: 'SQUARE', label: intl.formatMessage({ id: 'pages.draw.SQUARE' }) },
-                { value: 'LANDSCAPE', label: intl.formatMessage({ id: 'pages.draw.LANDSCAPE' }) },
-              ]}
-              optionType="button"
-            />
-            <Button type="primary" onClick={submit} loading={submitLoading}>
-              {intl.formatMessage({ id: 'pages.draw.submitTask' })}
-            </Button>
-          </Space>
+          {/* <Space style={{ width: '100%', marginTop: '10px' }}> */}
+          <Radio.Group
+            value={dimensions}
+            onChange={handleDimensionsChange}
+            options={[
+              { value: 'PORTRAIT', label: intl.formatMessage({ id: 'pages.draw.PORTRAIT' }) },
+              { value: 'SQUARE', label: intl.formatMessage({ id: 'pages.draw.SQUARE' }) },
+              { value: 'LANDSCAPE', label: intl.formatMessage({ id: 'pages.draw.LANDSCAPE' }) },
+            ]}
+            optionType="button"
+          />
+          <Button type="primary" onClick={submit} loading={submitLoading}>
+            {intl.formatMessage({ id: 'pages.draw.submitTask' })}
+          </Button>
+          {/* </Space> */}
         </Flex>
       );
     } else if (action === 'describe') {
       return (
-        <Flex vertical>
-          <Upload {...props} listType="picture-card">
-            {images.length >= 1 ? null : uploadButton}
+        <Flex gap="small" align="center">
+          <Select
+            value={botType}
+            onChange={handleBotTypeChange}
+            defaultValue="MID_JOURNEY"
+            style={{ width: 120 }} // 调整宽度
+            options={bot_options}
+          />
+
+          <Select
+            value={isFace ? 'swap' : action}
+            style={{ width: 150 }}
+            onChange={handleActionChange}
+            options={options}
+          />
+          <Upload {...props}>
+            {images.length >= 1 ? null : <Button icon={<UploadOutlined />}></Button>}
           </Upload>
+          {/* <Upload {...props}>{images.length >= 1 ? null : uploadButton}</Upload> */}
           <Button
-            style={{ marginTop: '10px' }}
+            // style={{ marginTop: '10px' }}
             type="primary"
             onClick={submit}
             loading={submitLoading}
@@ -1085,7 +1213,21 @@ const Draw: React.FC = () => {
       );
     } else if (action === 'shorten') {
       return (
-        <Flex style={{ width: '100%', marginTop: '10px' }} gap={6}>
+        <Flex style={{ width: '100%' }} gap={6}>
+          <Select
+            value={botType}
+            onChange={handleBotTypeChange}
+            defaultValue="MID_JOURNEY"
+            style={{ width: 120 }} // 调整宽度
+            options={bot_options}
+          />
+
+          <Select
+            value={isFace ? 'swap' : action}
+            style={{ width: 150 }}
+            onChange={handleActionChange}
+            options={options}
+          />
           <TextArea
             placeholder="Prompt"
             value={prompt}
@@ -1213,21 +1355,21 @@ const Draw: React.FC = () => {
 
   // 参数切换区
   const switchArea = () => {
-    let options;
-    let isFace = false;
-    if (botType === 'INSIGHT_FACE' || botType === 'FACE_SWAP' || botType === 'VIDEO_FACE_SWAP') {
-      isFace = true;
-      options = [{ value: 'swap', label: '/swap' }];
-    } else {
-      options = [
-        { value: 'imagine', label: '/imagine' },
-        { value: 'blend', label: '/blend' },
-        { value: 'describe', label: '/describe' },
-        { value: 'shorten', label: '/shorten' },
-        { value: 'showjobid', label: '/show job_id' },
-        { value: 'show', label: '/show task_id' },
-      ];
-    }
+    // let options;
+    // let isFace = false;
+    // if (botType === 'INSIGHT_FACE' || botType === 'FACE_SWAP' || botType === 'VIDEO_FACE_SWAP') {
+    //   isFace = true;
+    //   options = [{ value: 'swap', label: '/swap' }];
+    // } else {
+    //   options = [
+    //     { value: 'imagine', label: '/imagine' },
+    //     { value: 'blend', label: '/blend' },
+    //     { value: 'describe', label: '/describe' },
+    //     { value: 'shorten', label: '/shorten' },
+    //     { value: 'showjobid', label: '/show job_id' },
+    //     { value: 'show', label: '/show task_id' },
+    //   ];
+    // }
 
     const accountOpts = accounts.map((account: any) => {
       return {
@@ -1238,12 +1380,12 @@ const Draw: React.FC = () => {
     });
     return (
       <Space style={{ marginBottom: '10px' }}>
-        <Select
+        {/* <Select
           value={isFace ? 'swap' : action}
           style={{ width: 150 }}
           onChange={handleActionChange}
           options={options}
-        />
+        /> */}
 
         {/* <Select
           value={curAccount}
@@ -1254,7 +1396,7 @@ const Draw: React.FC = () => {
           placeholder={intl.formatMessage({ id: 'pages.draw.selectAccount' })}
         /> */}
 
-        <Radio.Group
+        {/* <Radio.Group
           value={botType}
           onChange={handleBotTypeChange}
           options={[
@@ -1265,7 +1407,7 @@ const Draw: React.FC = () => {
             // { value: 'VIDEO_FACE_SWAP', label: 'Video・FaceSwap' },
           ]}
           optionType="button"
-        />
+        /> */}
       </Space>
     );
   };
@@ -1334,106 +1476,131 @@ const Draw: React.FC = () => {
     //     overflow: 'hidden',
     //   }}
     // >
-    <Layout
-      // className={`flex flex-col ml-[200px]`}
+    // <PageContainer
+    //   header={{
+    //     title: false,
+    //     breadcrumb: {},
+    //   }}
+    //   content={false}
+    //   token={{
+    //     paddingBlockPageContainerContent: 0,
+    //     paddingInlinePageContainerContent: 0,
+    //   }}
+    //   style={{
+    //     // padding: 0,
+    //     overflow: 'hidden',
+    //   }}
+    // >
+    <div
+      id="draw-container"
       style={{
-        // paddingTop: '48px',
-        // height: '100%',
-        // minHeight: '100%',
-        // overflow: 'auto',
-        // marginTop: '56px',
-
-        height: '100vh', // 减去顶部 header 的高度
-        // flex: '1 1 0%',
+        // padding: 0,
+        height: 'calc(100vh - 56px)',
         overflow: 'hidden',
       }}
     >
-      {/* <Header style={{ background: '#fff', padding: 0 }}>
-       
-      </Header> */}
-      <Sider
-        collapsible
-        collapsed={collapsed}
-        onCollapse={(value) => setCollapsed(value)} // 折叠状态改变时的回调
-        width={300}
-        collapsedWidth={80}
-        trigger={null} // 隐藏默认触发器
+      <Layout
+        // className={`flex flex-col ml-[200px]`}
         style={{
-          borderRight: '1px solid #f0f0f0',
-          background: '#fafafa',
+          // paddingTop: '48px',
+          // height: '100%',
           // minHeight: '100%',
-          // position: 'sticky',
-          // top: 48,
-          maxHeight: 'calc(100vh - 56px)',
-          // height: 'calc(100vh - 56px)',
-          flexDirection: 'column',
-          overflow: 'auto',
+          // overflow: 'auto',
+          // marginTop: '56px',
 
+          height: '100vh', // 减去顶部 header 的高度
           // flex: '1 1 0%',
-          // overflow: 'hidden auto',
-          // top: 48,
+          overflow: 'hidden',
         }}
       >
-        <div
+        {/* <Header style={{ background: '#fff', padding: 0 }}>
+       
+      </Header> */}
+        <Sider
+          // collapsible
+          // collapsed={collapsed}
+          // onCollapse={(value) => setCollapsed(value)} // 折叠状态改变时的回调
+          width={300}
+          // collapsedWidth={80}
+          trigger={null} // 隐藏默认触发器
           style={{
-            height: '48px',
-            lineHeight: '48px',
-            cursor: 'pointer',
-            fontSize: '16px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '0 16px',
-            borderBottom: '1px solid #f0f0f0',
+            borderRight: '1px solid #f0f0f0',
+            background: '#fafafa',
+            // minHeight: '100%',
+            position: 'sticky',
+            // top: 56,
+            maxHeight: 'calc(100vh - 56px)',
+            // height: 'calc(100vh - 56px)',
+            // flexDirection: 'column',
+            overflow: 'auto',
+
+            // flex: '1 1 0%',
+            // overflow: 'hidden auto',
+            // top: 48,
           }}
-          onClick={() => setCollapsed(!collapsed)}
         >
-          {/* 左侧Logo或标题 */}
           <div
             style={{
+              height: '48px',
+              lineHeight: '48px',
+              cursor: 'pointer',
+              fontSize: '16px',
               display: 'flex',
               alignItems: 'center',
-              opacity: collapsed ? 0 : 1,
-              transition: 'opacity 0.2s',
+              justifyContent: 'space-between',
+              padding: '0 16px',
+              borderBottom: '1px solid #f0f0f0',
             }}
+            // onClick={() => setCollapsed(!collapsed)}
           >
-            <img src="./midjourney.webp" alt="logo" style={{ width: 20, marginRight: 8 }} />
-            {!collapsed && <span>频道列表</span>}
+            {/* 左侧Logo或标题 */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                opacity: collapsed ? 0 : 1,
+                transition: 'opacity 0.2s',
+              }}
+            >
+              <img src="./midjourney.webp" alt="logo" style={{ width: 20, marginRight: 8 }} />
+              {!collapsed && <span>频道列表</span>}
+            </div>
+
+            {/* 右侧折叠按钮 */}
+            {collapsed && (
+              <Button
+                type="text"
+                icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+                onClick={() => setCollapsed(!collapsed)}
+                style={{ fontSize: '16px' }}
+              />
+            )}
           </div>
 
-          {/* 右侧折叠按钮 */}
-          <Button
-            type="text"
-            icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-            onClick={toggleCollapse}
-            style={{ fontSize: '16px' }}
-          />
-        </div>
-
-        {/* <Button
+          {/* <Button
           type="text"
           icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
           onClick={toggleCollapse}
         /> */}
-        <ChannelList
-          accounts={accounts}
-          curAccount={curAccount}
-          onAccountChange={handleAccountChange}
-        />
-      </Sider>
-      <Content
-        style={{
-          // marginLeft: collapsed ? '80px' : '300px',
-          // marginTop: '48px',
-          height: '100vh',
-          display: 'flex',
-          // flex: 1,
-          flexDirection: 'column',
-          // padding: '20px',
-          overflow: 'auto',
-        }}
-      >
-        {/* <div
+          <ChannelList
+            accounts={accounts}
+            curAccount={curAccount}
+            onAccountChange={handleAccountChange}
+          />
+        </Sider>
+        <Content
+          style={{
+            // marginLeft: collapsed ? '80px' : '300px',
+            // marginTop: '48px',
+            height: '100vh',
+            display: 'flex',
+            // flex: 1,
+            flexDirection: 'column',
+            // padding: '20px',
+            overflow: 'auto',
+          }}
+        >
+          {/* <div
           style={{
             display: 'flex',
             // flex: '1 1 0%',
@@ -1443,65 +1610,66 @@ const Draw: React.FC = () => {
             overflow: 'auto',
           }}
         > */}
-        {contextHolder}
-        {/* 任务面板 */}
-        <Card
-          ref={scrollRef} // 增加滚动触发器
-          style={{
-            // marginBottom: '15px',
-            overflow: 'auto',
-            flex: '1 1 0%',
-            // flexDirection: 'column',
-          }}
-          loading={dataLoading}
-          id="task-panel"
-        >
-          {/* TODO 记录列表 */}
-          {loading && (
-            <div style={{ textAlign: 'center', padding: '10px' }}>
-              <Spin />
-            </div>
-          )}
-          {!hasMore && (
-            <div style={{ textAlign: 'center', padding: '10px' }}>
-              {/* <Spin /> */}
-              所有数据已加载完毕
-            </div>
-          )}
-          {taskCardList()}
-        </Card>
-        <Card
-          style={{
-            // left: collapsed ? '80px' : '300px', // 根据 Sider 宽度调整
-            // width: `calc(100% - ${collapsed ? '80px' : '300px'})`, // 动态计算宽度
-            // width: '100%', // 动态计算宽度
-            marginBottom: '56px',
-            padding: 0,
-            flexShrink: 1,
-            // height: '100px',
-            // minHeight: '100px',
-            // width: '100%',
-            // flex: '0 0 auto',
-            // marginTop: 'auto',
-          }}
-        >
-          {switchArea()}
-          {actionArea()}
-        </Card>
-        <Modal
-          title={modalTitle}
-          open={modalVisible}
-          onCancel={cancelModal}
-          onOk={submitModal}
-          confirmLoading={loadingModal}
-          width={600}
-        >
-          {confirmModal()}
-        </Modal>
-        {/* </div> */}
-      </Content>
-    </Layout>
-    // </div>
+          {contextHolder}
+          {/* 任务面板 */}
+          <Card
+            ref={scrollRef} // 增加滚动触发器
+            style={{
+              // marginBottom: '15px',
+              overflow: 'auto',
+              flex: '1 1 0%',
+              // flexDirection: 'column',
+            }}
+            loading={dataLoading}
+            id="task-panel"
+          >
+            {/* TODO 记录列表 */}
+            {loading && (
+              <div style={{ textAlign: 'center', padding: '10px' }}>
+                <Spin />
+              </div>
+            )}
+            {!hasMore && (
+              <div style={{ textAlign: 'center', padding: '10px' }}>
+                {/* <Spin /> */}
+                所有数据已加载完毕
+              </div>
+            )}
+            {taskCardList()}
+          </Card>
+          <Card
+            style={{
+              // left: collapsed ? '80px' : '300px', // 根据 Sider 宽度调整
+              // width: `calc(100% - ${collapsed ? '80px' : '300px'})`, // 动态计算宽度
+              // width: '100%', // 动态计算宽度
+              marginBottom: '56px',
+              padding: 0,
+              flexShrink: 1,
+              // height: '100px',
+              // minHeight: '100px',
+              // width: '100%',
+              // flex: '0 0 auto',
+              // marginTop: 'auto',
+            }}
+          >
+            {switchArea()}
+            {actionArea()}
+          </Card>
+          <Modal
+            title={modalTitle}
+            open={modalVisible}
+            onCancel={cancelModal}
+            onOk={submitModal}
+            confirmLoading={loadingModal}
+            width={600}
+          >
+            {confirmModal()}
+          </Modal>
+          {/* </div> */}
+        </Content>
+      </Layout>
+    </div>
+    // </PageContainer>
   );
 };
 

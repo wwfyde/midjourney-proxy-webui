@@ -32,29 +32,35 @@ export default [
     path: '/',
     redirect: '/draw',
   },
-  // {
-  //   name: 'list.account-list',
-  //   icon: 'crown',
-  //   path: '/account',
-  //   component: './AccountList',
-  // },
-  // {
-  //   name: 'list.domain-list',
-  //   icon: 'tag',
-  //   path: '/domain',
-  //   component: './DomainList/List',
-  // },
-  // {
-  //   name: 'list.user-list',
-  //   icon: 'user',
-  //   path: '/user-list',
-  //   component: './UserList/List',
-  // },
+  {
+    name: 'list.account-list',
+    icon: 'crown',
+    path: '/account',
+    component: './AccountList',
+  },
+  {
+    name: 'list.domain-list',
+    icon: 'tag',
+    path: '/domain',
+    component: './DomainList/List',
+  },
+  {
+    name: 'list.user-list',
+    icon: 'user',
+    path: '/user-list',
+    component: './UserList/List',
+  },
   {
     name: 'task-list',
     icon: 'bars',
     path: '/task',
     component: './Task/List',
+    routes: [
+      {
+        path: '/task/list',
+        component: './Task/List',
+      },
+    ],
   },
   {
     name: 'draw-test',
@@ -67,6 +73,7 @@ export default [
     icon: 'experiment',
     path: '/draw',
     component: './Draw2',
+    // layout: false,
   },
   {
     name: 'demo',
@@ -74,18 +81,18 @@ export default [
     path: '/demo',
     component: './Demo',
   },
-  // {
-  //   name: 'list.banned-word-list',
-  //   icon: 'stop',
-  //   path: '/banned-word',
-  //   component: './BannedWordList/List',
-  // },
-  // {
-  //   name: 'setting',
-  //   icon: 'setting',
-  //   path: '/setting',
-  //   component: './Setting',
-  // },
+  {
+    name: 'list.banned-word-list',
+    icon: 'stop',
+    path: '/banned-word',
+    component: './BannedWordList/List',
+  },
+  {
+    name: 'setting',
+    icon: 'setting',
+    path: '/setting',
+    component: './Setting',
+  },
   {
     name: 'probe',
     icon: 'profile',

@@ -3,6 +3,7 @@ import type { RequestConfig } from '@umijs/max';
 import { getLocale } from '@umijs/max';
 import { message, notification } from 'antd';
 import { history } from '@umijs/max';
+import defaultSettings from '../config/defaultSettings';
 
 const loginPath = '/user/login';
 
@@ -107,13 +108,14 @@ export const errorConfig: RequestConfig = {
   // 请求拦截器
   requestInterceptors: [
     (config: RequestOptions) => {
-      const MJ_API_SECRET = sessionStorage.getItem('mj-api-secret') || ''; // 获取保存的密码
+      const MJ_API_SECRET = sessionStorage.getItem('mj-api-secret') || defaultSettings.mjApiSecret; // 获取保存的密码
       const locale = getLocale();
       config.headers = {
         ...config.headers,
-        'mj-api-secret': MJ_API_SECRET, // 将密码作为自定义头部
+        'Mj-Api-Secret': MJ_API_SECRET ? MJ_API_SECRET : '', // 将密码作为自定义头部
         'Accept-Language': locale === 'zh-CN' ? 'zh-CN' : 'en-US',
       };
+      console.log('MJ_API_SECRET', MJ_API_SECRET);
       return { ...config };
     },
   ],

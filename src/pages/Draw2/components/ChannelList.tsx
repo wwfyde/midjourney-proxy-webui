@@ -54,7 +54,9 @@ const ChannelList: React.FC<ChannelListProps> = ({ accounts, curAccount, onAccou
         >
           <Menu.Item key="all">全部</Menu.Item>
           {accounts.map((account) => (
-            <Menu.Item key={account.channelId}>{account.channelId}</Menu.Item>
+            <Menu.Item key={account.channelId}>
+              {account.remark ? `${account.remark}-${account.channelId}` : account.channelId}
+            </Menu.Item>
           ))}
         </Menu>
       </Space>

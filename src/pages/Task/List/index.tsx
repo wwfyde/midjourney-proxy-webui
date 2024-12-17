@@ -348,44 +348,53 @@ const List: React.FC = () => {
   ];
 
   return (
-    <PageContainer>
-      {contextHolder}
-      <Card>
-        <ProTable
-          columns={columns}
-          scroll={{ x: 1000 }}
-          search={{ defaultCollapsed: true }}
-          pagination={{
-            pageSize: 10,
-            showQuickJumper: false,
-            showSizeChanger: false,
-          }}
-          rowKey="id"
-          actionRef={actionRef}
-          request={async (params) => {
-            const res = await queryTask({ ...params, pageNumber: params.current - 1 });
-            const images = res.list.map((item) => item.imageUrl || '').filter((item) => item != '');
-            const list = res.list;
-            list.forEach((item, index) => {
-              item.images = images;
-            });
-            return {
-              data: list,
-              total: res.pagination.total,
-              success: true,
-            };
-          }}
-        />
-      </Card>
-      <MyModal
-        title={title}
-        modalVisible={modalVisible}
-        hideModal={hideModal}
-        modalContent={modalContent}
-        footer={footer}
-        modalWidth={modalWidth}
-      ></MyModal>
-    </PageContainer>
+    <div
+      style={{
+        padding: 0,
+        overflow: 'auto',
+      }}
+    >
+      <PageContainer>
+        {contextHolder}
+        <Card>
+          <ProTable
+            columns={columns}
+            scroll={{ x: 1000 }}
+            search={{ defaultCollapsed: true }}
+            pagination={{
+              pageSize: 10,
+              showQuickJumper: false,
+              showSizeChanger: false,
+            }}
+            rowKey="id"
+            actionRef={actionRef}
+            request={async (params) => {
+              const res = await queryTask({ ...params, pageNumber: params.current - 1 });
+              const images = res.list
+                .map((item) => item.imageUrl || '')
+                .filter((item) => item != '');
+              const list = res.list;
+              list.forEach((item, index) => {
+                item.images = images;
+              });
+              return {
+                data: list,
+                total: res.pagination.total,
+                success: true,
+              };
+            }}
+          />
+        </Card>
+        <MyModal
+          title={title}
+          modalVisible={modalVisible}
+          hideModal={hideModal}
+          modalContent={modalContent}
+          footer={footer}
+          modalWidth={modalWidth}
+        ></MyModal>
+      </PageContainer>
+    </div>
   );
 };
 
