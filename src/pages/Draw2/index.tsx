@@ -1227,7 +1227,7 @@ const Draw: React.FC = () => {
             options={options}
           />
           <Upload {...props}>
-            {images.length >= 5 ? null : <Button icon={<UploadOutlined />}>上传</Button>}
+            {images.length >= 1 ? null : <Button icon={<UploadOutlined />}>上传</Button>}
           </Upload>
           {/* <Flex style={{ width: '100%', marginTop: '10px' }} gap={6}> */}
           <TextArea
@@ -1262,7 +1262,7 @@ const Draw: React.FC = () => {
           {/* <Upload {...props} listType="picture-card">
             {images.length >= 5 ? null : uploadButton}
           </Upload> */}
-          <Upload {...props}>
+          <Upload {...props} listType="picture-card">
             {images.length >= 5 ? null : <Button icon={<UploadOutlined />}>上传</Button>}
           </Upload>
           {/* <Space style={{ width: '100%', marginTop: '10px' }}> */}
