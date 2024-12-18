@@ -52,7 +52,7 @@ const Settings: ProLayoutProps & {
   },
 };
 
-const mjApiSecret = 'm73dqurxs5k2x53x9t52dz3kks1ngswd'; // 获取保存的密码
+const mjApiSecret = 'admin'; // 获取保存的密码
 
 console.log('mjApiSecret', mjApiSecret);
 

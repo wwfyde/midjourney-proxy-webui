@@ -25,6 +25,7 @@ import {
   Image as AntdImage,
   Input,
   Layout,
+  List,
   message,
   Modal,
   notification,
@@ -48,6 +49,7 @@ const { TextArea } = Input;
 const { Meta } = Card;
 
 const Draw: React.FC = () => {
+  const PAGE_SIZE = 10;
   const [api, contextHolder] = notification.useNotification();
   const [tasks, setTasks] = useState<any[]>([]); // 从旧到新的一个任务序列
   const [dataLoading, setDataLoading] = useState(false);
@@ -92,8 +94,10 @@ const Draw: React.FC = () => {
 
   // 分页和加载更多支持
   const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0); // 统计总计数量
+  const [current, setCurrent] = useState(0); // 当前页码
   const [hasMore, setHasMore] = useState(true);
-  const [loading, setLoading] = useState(false);
+  // const [loading, setLoading] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -155,34 +159,52 @@ const Draw: React.FC = () => {
     );
   };
 
+  // const scrollToBottom = () => {
+  //   setTimeout(() => {
+  //     const panel = document.getElementById('task-panel');
+  //     if (!panel) return;
+  //     panel.scrollTo(0, panel.scrollHeight);
+  //     console.log('滚动到底部');
+  //     message.info('滚动到底部');
+  //   }, 2000);
+  // };
   const scrollToBottom = () => {
-    setTimeout(() => {
-      const panel = document.getElementById('task-panel');
+    requestAnimationFrame(() => {
+      const panel = scrollRef.current;
       if (!panel) return;
-      panel.scrollTo(0, panel.scrollHeight);
-    }, 20);
+
+      // 对于反转的滚动条，滚动到"底部"实际上是滚动到顶部
+      panel.scrollTo({
+        top: 0,
+        behavior: 'smooth',
+      });
+
+      // 打印调试信息
+      console.log('Scroll info:', {
+        scrollHeight: panel.scrollHeight,
+        clientHeight: panel.clientHeight,
+        scrollTop: panel.scrollTop,
+        direction: 'reversed',
+      });
+      message.info('滚动到底部');
+    });
   };
 
+  // 获取任务数据
   const fetchData = async (params: any): Promise<any[]> => {
     setDataLoading(true);
-
     const accs = await queryAccount();
     setAccounts(accs);
 
     const res = await queryTask(params);
-    const array = res.list.reverse();
+    const array = res.list.reverse(); // 将数据反转
     for (const item of array) {
       if (item.status !== 'FAILURE' && item.status !== 'SUCCESS' && item.action !== 'CANCEL') {
         waitTaskIds.add(item.id);
       }
     }
     cbSaver.current = array;
-    // setTasks(array);
     setDataLoading(false);
-    // 仅在首次加载时, 滚动到底部
-    if (params.current === 1) {
-      scrollToBottom();
-    }
     return array;
   };
 
@@ -191,60 +213,81 @@ const Draw: React.FC = () => {
     setPrompt('');
     setImages([]);
   };
+  const handleScroll = () => {
+    const scrollContainer = scrollRef.current;
 
+    // 当滚动到顶部时加载更多
+    if (scrollContainer && !dataLoading) {
+      console.log('scrollContainer.scrollTop', scrollContainer.scrollTop);
+      console.log('scrollContainer.scrollHeight', scrollContainer.scrollHeight);
+      console.log('scrollContainer.clientHeight', scrollContainer.clientHeight);
+      // message.info('目标元素正在滚动');
+
+      if (
+        scrollContainer.scrollHeight + scrollContainer.scrollTop === scrollContainer.clientHeight &&
+        hasMore &&
+        !dataLoading
+      ) {
+        loadMoreData();
+      }
+    }
+  };
   // 加载更多数据
   const loadMoreData = async () => {
-    console.log('loading || !hasMore', loading || !hasMore);
-    console.log('loading ', loading);
-    console.log('hasMore ', hasMore);
-    if (loading || !hasMore) {
-      console.log('return');
+    if (dataLoading || !hasMore) {
       message.info('没有更多数据');
       return;
     }
-    setLoading(true);
+    message.info('触发加载, 加载更多数据');
+    setDataLoading(true);
 
     try {
       const newTasks = await fetchData({
         state: customState,
-        current: page + 1,
-        pageSize: 10,
+        current: page,
+        pageSize: PAGE_SIZE,
         instanceId: curAccount,
         statusSet: ['NOT_START', 'SUBMITTED', 'IN_PROGRESS', 'FAILURE', 'SUCCESS'],
         sort: 'submitTime,desc',
       });
-      if (newTasks.length > 0) {
-        // 反转 newTasks
+
+      // 判断是否还有更多可以优化
+      if (newTasks.length === PAGE_SIZE) {
         setTasks((prevTasks) => [...newTasks, ...prevTasks]);
         setHasMore(true);
-      } else {
+        setPage(page + 1);
+      } else if (newTasks.length === 0) {
         setHasMore(false);
         message.warning('没有更多数据');
+      } else {
+        setTasks((prevTasks) => [...newTasks, ...prevTasks]);
+        setHasMore(false);
       }
     } catch (error) {
-      message.error('加载失败??');
-      // setHasMore(true);
+      message.error('加载失败');
     } finally {
-      setLoading(false);
-      setPage(page + 1);
+      setDataLoading(false);
     }
   };
+
   // 监听滚动事件
-  const handleScroll = () => {
-    const scrollElement = scrollRef.current;
-    if (scrollElement && scrollElement.scrollTop === 0) {
-      message.warning('触发滚动事件');
-      loadMoreData(); // TODO 暂时禁用
-    }
-  };
+  // const handleScroll = () => {
+  //   const scrollElement = scrollRef.current;
+  //   if (scrollElement && scrollElement.scrollTop === 0) {
+  //     message.warning('触发滚动事件');
+  //     loadMoreData(); // TODO 暂时禁用
+  //   }
+  // };
   // const clearScrollListener = useCallback(() => {
   //   if (scrollRef.current) {
   //     scrollRef.current.removeEventListener('scroll', handleScroll);
   //   }
   // }, []);
+
+  // 切换账号
   const handleAccountChange = useCallback(
     async (value: string) => {
-      // clearScrollListener(); // 先清除滚动监听
+      // clearScrollListener(); //TODO 先清除滚动监听
 
       if (value === curAccount) return;
       if (value === 'all') {
@@ -262,8 +305,17 @@ const Draw: React.FC = () => {
           sort: 'submitTime,desc',
         });
         setTasks(newTasks);
-        setPage(1); // 每次切换账号后, 重置分页
-        setHasMore(true); // 每次切换账号后, 重置更多状态
+        scrollToBottom(); // 每次切换账号并加载数据后滚动到底部
+        if (newTasks.length === PAGE_SIZE) {
+          setPage(2); // 每次切换账号后, 重置分页
+          setHasMore(true);
+        } else if (newTasks.length === 0) {
+          setHasMore(false);
+        } else {
+          setHasMore(false);
+        }
+        // setTotal(newTasks.length);
+        // setHasMore(true); // 每次切换账号后, 重置更多状态
       }
       // TODO 可能需要重置更多状态
     },
@@ -298,6 +350,7 @@ const Draw: React.FC = () => {
     });
   };
 
+  // 提交任务
   const submit = async () => {
     if (botType === 'INSIGHT_FACE' || botType === 'FACE_SWAP') {
       if (swapImages1.length < 1) {
@@ -771,43 +824,104 @@ const Draw: React.FC = () => {
     return <Markdown>{title}</Markdown>;
   };
 
+  // const taskCardList = () => {
+  //   return filteredTasks.map((task: any) => {
+  //     let avatar = './midjourney.webp';
+  //     if (task.botType === 'NIJI_JOURNEY') {
+  //       avatar = './niji.webp';
+  //     } else if (
+  //       task.botType === 'INSIGHT_FACE' ||
+  //       task.botType === 'FACE_SWAP' ||
+  //       task.botType === 'VIDEO_FACE_SWAP'
+  //     ) {
+  //       avatar = './insightface.webp';
+  //     }
+  //     return (
+  //       <Card
+  //         bordered={false}
+  //         key={task.id}
+  //         styles={{
+  //           body: {
+  //             backgroundColor: '#eaeaea',
+  //             marginBottom: '10px',
+  //           },
+  //         }}
+  //       >
+  //         <Meta
+  //           avatar={<Avatar src={avatar} />}
+  //           title={taskCardTitle(task)}
+  //           description={taskCardSubTitle(task)}
+  //         />
+  //         <Flex vertical style={{ paddingLeft: '48px' }}>
+  //           {getTaskCard(task)}
+  //           <Space wrap style={{ marginTop: '7px' }}>
+  //             {actionButtons(task)}
+  //           </Space>
+  //         </Flex>
+  //       </Card>
+  //     );
+  //   });
+  // };
+
+  const getTaskAvatar = (task: any) => {
+    let avatar = './midjourney.webp';
+    if (task.botType === 'NIJI_JOURNEY') {
+      avatar = './niji.webp';
+    } else if (
+      task.botType === 'INSIGHT_FACE' ||
+      task.botType === 'FACE_SWAP' ||
+      task.botType === 'VIDEO_FACE_SWAP'
+    ) {
+      avatar = './insightface.webp';
+    }
+    return avatar;
+  };
+
+  // 任务列表
   const taskCardList = () => {
-    return filteredTasks.map((task: any) => {
-      let avatar = './midjourney.webp';
-      if (task.botType === 'NIJI_JOURNEY') {
-        avatar = './niji.webp';
-      } else if (
-        task.botType === 'INSIGHT_FACE' ||
-        task.botType === 'FACE_SWAP' ||
-        task.botType === 'VIDEO_FACE_SWAP'
-      ) {
-        avatar = './insightface.webp';
-      }
-      return (
-        <Card
-          bordered={false}
-          key={task.id}
-          styles={{
-            body: {
-              backgroundColor: '#eaeaea',
-              marginBottom: '10px',
-            },
-          }}
-        >
-          <Meta
-            avatar={<Avatar src={avatar} />}
-            title={taskCardTitle(task)}
-            description={taskCardSubTitle(task)}
-          />
-          <Flex vertical style={{ paddingLeft: '48px' }}>
-            {getTaskCard(task)}
-            <Space wrap style={{ marginTop: '7px' }}>
-              {actionButtons(task)}
-            </Space>
-          </Flex>
-        </Card>
-      );
-    });
+    return (
+      <Card
+        ref={scrollRef} // 增加滚动触发器
+        id="task-panel"
+        onScroll={handleScroll}
+        style={{ overflow: 'auto', display: 'flex', flexDirection: 'column-reverse' }}
+        loading={dataLoading}
+      >
+        <List
+          dataSource={filteredTasks}
+          renderItem={(task: any) => (
+            <List.Item key={task.id}>
+              <Card
+                bordered={false}
+                styles={{
+                  body: {
+                    backgroundColor: '#eaeaea',
+                    marginBottom: '10px',
+                  },
+                }}
+              >
+                <Meta
+                  avatar={<Avatar src={getTaskAvatar(task)} />} // TODO 可优化
+                  title={taskCardTitle(task)}
+                  description={taskCardSubTitle(task)}
+                />
+                <Flex vertical style={{ paddingLeft: '48px' }}>
+                  {getTaskCard(task)}
+                  <Space wrap style={{ marginTop: '7px' }}>
+                    {actionButtons(task)}
+                  </Space>
+                </Flex>
+              </Card>
+            </List.Item>
+          )}
+        />
+        {dataLoading && (
+          <div style={{ textAlign: 'center', padding: '10px' }}>
+            <Spin tip="Loading" />
+          </div>
+        )}
+      </Card>
+    );
   };
 
   const getTaskMarkdownInfo = (task: any) => {
@@ -1425,18 +1539,11 @@ const Draw: React.FC = () => {
   }, [curAccount, tasks]);
 
   useEffect(() => {
-    const fetchInitialData = async () => {
-      const aTasks = await fetchData({
-        state: customState,
-        current: 1,
-        pageSize: 10,
-        statusSet: ['NOT_START', 'SUBMITTED', 'IN_PROGRESS', 'FAILURE', 'SUCCESS'],
-        sort: 'submitTime,desc',
-      });
-      setTasks(aTasks);
+    const loadData = async () => {
+      await loadMoreData(); // 首次加载, 加载十条, 首次加载时滚动到底部
+      scrollToBottom(); // 滚动到底部
     };
-
-    fetchInitialData();
+    loadData();
 
     if (syncRunningTasksFutureRef.current) {
       clearInterval(syncRunningTasksFutureRef.current);
@@ -1453,15 +1560,7 @@ const Draw: React.FC = () => {
         syncRunningTasksFutureRef.current = null;
       }
     };
-  }, []);
-
-  useEffect(() => {
-    const scrollElement = scrollRef.current;
-    if (scrollElement) {
-      scrollElement.addEventListener('scroll', handleScroll);
-      return () => scrollElement.removeEventListener('scroll', handleScroll);
-    }
-  }, [handleScroll]);
+  }, []); // 空依赖数组，仅在组件挂载时执行一次
 
   return (
     // <div
@@ -1612,31 +1711,8 @@ const Draw: React.FC = () => {
         > */}
           {contextHolder}
           {/* 任务面板 */}
-          <Card
-            ref={scrollRef} // 增加滚动触发器
-            style={{
-              // marginBottom: '15px',
-              overflow: 'auto',
-              flex: '1 1 0%',
-              // flexDirection: 'column',
-            }}
-            loading={dataLoading}
-            id="task-panel"
-          >
-            {/* TODO 记录列表 */}
-            {loading && (
-              <div style={{ textAlign: 'center', padding: '10px' }}>
-                <Spin />
-              </div>
-            )}
-            {!hasMore && (
-              <div style={{ textAlign: 'center', padding: '10px' }}>
-                {/* <Spin /> */}
-                所有数据已加载完毕
-              </div>
-            )}
-            {taskCardList()}
-          </Card>
+
+          {taskCardList()}
           <Card
             style={{
               // left: collapsed ? '80px' : '300px', // 根据 Sider 宽度调整

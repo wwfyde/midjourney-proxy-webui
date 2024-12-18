@@ -32,24 +32,24 @@ export default [
     path: '/',
     redirect: '/draw',
   },
-  {
-    name: 'list.account-list',
-    icon: 'crown',
-    path: '/account',
-    component: './AccountList',
-  },
-  {
-    name: 'list.domain-list',
-    icon: 'tag',
-    path: '/domain',
-    component: './DomainList/List',
-  },
-  {
-    name: 'list.user-list',
-    icon: 'user',
-    path: '/user-list',
-    component: './UserList/List',
-  },
+  // {
+  //   name: 'list.account-list',
+  //   icon: 'crown',
+  //   path: '/account',
+  //   component: './AccountList',
+  // },
+  // {
+  //   name: 'list.domain-list',
+  //   icon: 'tag',
+  //   path: '/domain',
+  //   component: './DomainList/List',
+  // },
+  // {
+  //   name: 'list.user-list',
+  //   icon: 'user',
+  //   path: '/user-list',
+  //   component: './UserList/List',
+  // },
   {
     name: 'task-list',
     icon: 'bars',
@@ -81,18 +81,18 @@ export default [
     path: '/demo',
     component: './Demo',
   },
-  {
-    name: 'list.banned-word-list',
-    icon: 'stop',
-    path: '/banned-word',
-    component: './BannedWordList/List',
-  },
-  {
-    name: 'setting',
-    icon: 'setting',
-    path: '/setting',
-    component: './Setting',
-  },
+  // {
+  //   name: 'list.banned-word-list',
+  //   icon: 'stop',
+  //   path: '/banned-word',
+  //   component: './BannedWordList/List',
+  // },
+  // {
+  //   name: 'setting',
+  //   icon: 'setting',
+  //   path: '/setting',
+  //   component: './Setting',
+  // },
   {
     name: 'probe',
     icon: 'profile',
