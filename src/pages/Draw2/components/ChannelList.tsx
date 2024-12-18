@@ -26,8 +26,8 @@ const ChannelList: React.FC<ChannelListProps> = ({ accounts, curAccount, onAccou
         {/* 频道列表 */}
         <Menu
           mode="inline"
-          selectedKeys={curAccount ? [curAccount] : ['all']}
-          defaultSelectedKeys={['all']} // 设置默认选中项
+          selectedKeys={curAccount ? [curAccount] : ['']}
+          defaultSelectedKeys={['']} // 设置默认选中项
           //   items={accounts.map((account) => ({
           //     key: account.channelId,
           //     label: (
@@ -52,7 +52,7 @@ const ChannelList: React.FC<ChannelListProps> = ({ accounts, curAccount, onAccou
           //   }))}
           onClick={({ key }) => onAccountChange(key)}
         >
-          <Menu.Item key="all">全部</Menu.Item>
+          <Menu.Item key="">随机选择频道</Menu.Item>
           {accounts.map((account) => (
             <Menu.Item key={account.channelId}>
               {account.remark ? `${account.remark}-${account.channelId}` : account.channelId}

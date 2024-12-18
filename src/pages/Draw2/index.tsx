@@ -84,7 +84,7 @@ const Draw: React.FC = () => {
   });
 
   // TODO 增加任务过滤器来实现, 查看不同频道下的任务
-  const [filteredTasks, setFilteredTasks] = useState<any[]>([]);
+  // const [filteredTasks, setFilteredTasks] = useState<any[]>([]);
 
   const [collapsed, setCollapsed] = useState(false);
 
@@ -105,16 +105,6 @@ const Draw: React.FC = () => {
 
   const customState = 'midjourney-proxy-admin';
   const imagePrefix = sessionStorage.getItem('mj-image-prefix') || '';
-
-  // // 根据频道过滤任务
-  // useEffect(() => {
-  //   if (curAccount === 'all') {
-  //     setFilteredTasks(tasks);
-  //     return;
-  //   }
-  //   const filtered = tasks.filter((channelId) => channelId === selectedChannel);
-  //   setFilteredTasks(filtered);
-  // }, [curAccount, tasks]);
 
   const syncRunningTasks = async () => {
     const taskIds = Array.from(waitTaskIds);
@@ -291,33 +281,29 @@ const Draw: React.FC = () => {
       // clearScrollListener(); //TODO 先清除滚动监听
 
       if (value === curAccount) return;
-      if (value === 'all') {
-        setCurAccount('');
-        localStorage.removeItem('selectedAccount');
+
+      localStorage.setItem('selectedAccount', value);
+      setCurAccount(value);
+      const newTasks = await fetchData({
+        state: customState,
+        current: 1,
+        pageSize: PAGE_SIZE,
+        instanceId: value,
+        statusSet: ['NOT_START', 'SUBMITTED', 'IN_PROGRESS', 'FAILURE', 'SUCCESS'],
+        sort: 'submitTime,desc',
+      });
+      setTasks(newTasks);
+      scrollToBottom(); // 每次切换账号并加载数据后滚动到底部
+      if (newTasks.length === PAGE_SIZE) {
+        setPage(2); // 每次切换账号后, 重置分页
+        setHasMore(true);
+      } else if (newTasks.length === 0) {
+        setHasMore(false);
       } else {
-        setCurAccount(value);
-        localStorage.setItem('selectedAccount', value);
-        const newTasks = await fetchData({
-          state: customState,
-          current: 1,
-          pageSize: 10,
-          instanceId: value,
-          statusSet: ['NOT_START', 'SUBMITTED', 'IN_PROGRESS', 'FAILURE', 'SUCCESS'],
-          sort: 'submitTime,desc',
-        });
-        setTasks(newTasks);
-        scrollToBottom(); // 每次切换账号并加载数据后滚动到底部
-        if (newTasks.length === PAGE_SIZE) {
-          setPage(2); // 每次切换账号后, 重置分页
-          setHasMore(true);
-        } else if (newTasks.length === 0) {
-          setHasMore(false);
-        } else {
-          setHasMore(false);
-        }
-        // setTotal(newTasks.length);
-        // setHasMore(true); // 每次切换账号后, 重置更多状态
+        setHasMore(false);
       }
+      // setTotal(newTasks.length);
+      // setHasMore(true); // 每次切换账号后, 重置更多状态
       // TODO 可能需要重置更多状态
     },
     [curAccount],
@@ -889,7 +875,7 @@ const Draw: React.FC = () => {
         loading={dataLoading}
       >
         <List
-          dataSource={filteredTasks}
+          dataSource={tasks}
           renderItem={(task: any) => (
             <List.Item key={task.id}>
               <Card
@@ -1527,20 +1513,11 @@ const Draw: React.FC = () => {
     );
   };
 
-  // 根据选中的账号过滤任务
-  useEffect(() => {
-    if (!curAccount) {
-      setFilteredTasks(tasks); // 如果没有选择账号，显示所有任务
-      return;
-    }
-
-    // 根据选中的账号过滤任务
-    const filtered = tasks.filter((task) => task.instanceId === curAccount);
-    setFilteredTasks(filtered);
-  }, [curAccount, tasks]);
-
+  // 账号切换后刷新tasks值并重新按账号获取数据
   useEffect(() => {
     const loadData = async () => {
+      setTasks([]);
+      setPage(1);
       await loadMoreData(); // 首次加载, 加载十条, 首次加载时滚动到底部
       scrollToBottom(); // 滚动到底部
     };
@@ -1561,7 +1538,31 @@ const Draw: React.FC = () => {
         syncRunningTasksFutureRef.current = null;
       }
     };
-  }, []); // 空依赖数组，仅在组件挂载时执行一次
+  }, [curAccount]);
+
+  // useEffect(() => {
+  //   const loadData = async () => {
+  //     await loadMoreData(); // 首次加载, 加载十条, 首次加载时滚动到底部
+  //     scrollToBottom(); // 滚动到底部
+  //   };
+  //   loadData();
+
+  //   if (syncRunningTasksFutureRef.current) {
+  //     clearInterval(syncRunningTasksFutureRef.current);
+  //   }
+
+  //   syncRunningTasksFutureRef.current = setInterval(() => {
+  //     if (waitTaskIds.size === 0) return;
+  //     syncRunningTasks();
+  //   }, 2000);
+
+  //   return () => {
+  //     if (syncRunningTasksFutureRef.current) {
+  //       clearInterval(syncRunningTasksFutureRef.current);
+  //       syncRunningTasksFutureRef.current = null;
+  //     }
+  //   };
+  // }, []); // 空依赖数组，仅在组件挂载时执行一次
 
   return (
     // <div
