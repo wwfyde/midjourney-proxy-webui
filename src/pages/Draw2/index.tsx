@@ -880,6 +880,7 @@ const Draw: React.FC = () => {
             <List.Item key={task.id}>
               <Card
                 bordered={false}
+                style={{ width: '100%' }}
                 styles={{
                   body: {
                     backgroundColor: '#eaeaea',
