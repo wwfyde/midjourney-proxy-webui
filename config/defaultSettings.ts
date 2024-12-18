@@ -54,6 +54,6 @@ const Settings: ProLayoutProps & {
 
 const mjApiSecret = 'admin'; // 获取保存的密码
 
-console.log('mjApiSecret', mjApiSecret);
+// console.log('mjApiSecret', mjApiSecret);
 
 export default { ...Settings, mjApiSecret };

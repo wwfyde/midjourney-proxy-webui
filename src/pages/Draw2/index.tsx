@@ -176,7 +176,7 @@ const Draw: React.FC = () => {
         scrollTop: panel.scrollTop,
         direction: 'reversed',
       });
-      message.info('滚动到底部');
+      // message.info('滚动到底部');
     });
   };
 
@@ -226,10 +226,10 @@ const Draw: React.FC = () => {
   // 加载更多数据
   const loadMoreData = async () => {
     if (dataLoading || !hasMore) {
-      message.info('没有更多数据');
+      // message.info('没有更多数据');
       return;
     }
-    message.info('触发加载, 加载更多数据');
+    // message.info('触发加载, 加载更多数据');
     setDataLoading(true);
 
     try {
@@ -249,7 +249,7 @@ const Draw: React.FC = () => {
         setPage(page + 1);
       } else if (newTasks.length === 0) {
         setHasMore(false);
-        message.warning('没有更多数据');
+        // message.warning('没有更多数据');
       } else {
         setTasks((prevTasks) => [...newTasks, ...prevTasks]);
         setHasMore(false);

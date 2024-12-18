@@ -62,12 +62,12 @@ export default [
       },
     ],
   },
-  {
-    name: 'draw-test',
-    icon: 'experiment',
-    path: '/draw-test',
-    component: './Draw',
-  },
+  // {
+  //   name: 'draw-test',
+  //   icon: 'experiment',
+  //   path: '/draw-test',
+  //   component: './Draw',
+  // },
   {
     name: 'draw',
     icon: 'experiment',
@@ -75,12 +75,12 @@ export default [
     component: './Draw2',
     // layout: false,
   },
-  {
-    name: 'demo',
-    icon: 'experiment',
-    path: '/demo',
-    component: './Demo',
-  },
+  // {
+  //   name: 'demo',
+  //   icon: 'experiment',
+  //   path: '/demo',
+  //   component: './Demo',
+  // },
   // {
   //   name: 'list.banned-word-list',
   //   icon: 'stop',
@@ -93,12 +93,12 @@ export default [
   //   path: '/setting',
   //   component: './Setting',
   // },
-  {
-    name: 'probe',
-    icon: 'profile',
-    path: '/probe',
-    component: './Probe',
-  },
+  // {
+  //   name: 'probe',
+  //   icon: 'profile',
+  //   path: '/probe',
+  //   component: './Probe',
+  // },
   {
     path: '*',
     layout: false,
