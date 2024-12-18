@@ -222,12 +222,13 @@ const Draw: React.FC = () => {
       console.log('scrollContainer.scrollHeight', scrollContainer.scrollHeight);
       console.log('scrollContainer.clientHeight', scrollContainer.clientHeight);
       // message.info('目标元素正在滚动');
+      const isAtBottom =
+        Math.abs(
+          scrollContainer.scrollHeight + scrollContainer.scrollTop - scrollContainer.clientHeight,
+        ) <= 1;
+      console.log('isAtBottom', isAtBottom);
 
-      if (
-        scrollContainer.scrollHeight + scrollContainer.scrollTop === scrollContainer.clientHeight &&
-        hasMore &&
-        !dataLoading
-      ) {
+      if (isAtBottom && hasMore && !dataLoading) {
         loadMoreData();
       }
     }
