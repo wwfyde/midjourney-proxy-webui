@@ -65,7 +65,7 @@ const Draw: React.FC = () => {
   const [swapImages2, setSwapImages2] = useState<UploadFile[]>([]);
 
   const [loadingButton, setLoadingButton] = useState('');
-  const [submitLoading, setSubmitLoading] = useState(false);
+  const [submitLoading, setSubxmitLoading] = useState(false);
   const [waitTaskIds] = useState(new Set<string>());
 
   const [modalVisible, setModalVisible] = useState(false);
@@ -874,13 +874,8 @@ const Draw: React.FC = () => {
           flex: '1 1 0%',
           flexDirection: 'column',
         }}
-        loading={dataLoading}
+        // loading={dataLoading}
       >
-        {dataLoading && (
-          <div style={{ textAlign: 'center', padding: '10px' }}>
-            <Spin tip="Loading" />
-          </div>
-        )}
         <List
           dataSource={tasks}
           renderItem={(task: any) => (
@@ -1716,7 +1711,11 @@ const Draw: React.FC = () => {
         > */}
           {contextHolder}
           {/* 任务面板 */}
-
+          {dataLoading && (
+            <div style={{ textAlign: 'center', padding: '10px' }}>
+              <Spin tip="Loading" />
+            </div>
+          )}
           {taskCardList()}
           <Card
             style={{
