@@ -52,6 +52,7 @@ const Draw: React.FC = () => {
   const PAGE_SIZE = 10;
   const [api, contextHolder] = notification.useNotification();
   const [tasks, setTasks] = useState<any[]>([]); // 从旧到新的一个任务序列
+  const [list, setList] = useState<any[]>([]); // 一个额外的容器解决增量渲染问题
   const [dataLoading, setDataLoading] = useState(false);
 
   const [action, setAction] = useState('imagine');
@@ -165,7 +166,7 @@ const Draw: React.FC = () => {
 
       // 对于反转的滚动条，滚动到"底部"实际上是滚动到顶部
       panel.scrollTo({
-        top: 0,
+        top: panel.scrollHeight,
         behavior: 'smooth',
       });
 
@@ -174,7 +175,6 @@ const Draw: React.FC = () => {
         scrollHeight: panel.scrollHeight,
         clientHeight: panel.clientHeight,
         scrollTop: panel.scrollTop,
-        direction: 'reversed',
       });
       // message.info('滚动到底部');
     });
@@ -212,13 +212,14 @@ const Draw: React.FC = () => {
       console.log('scrollContainer.scrollHeight', scrollContainer.scrollHeight);
       console.log('scrollContainer.clientHeight', scrollContainer.clientHeight);
       // message.info('目标元素正在滚动');
-      const isAtBottom =
-        Math.abs(
-          scrollContainer.scrollHeight + scrollContainer.scrollTop - scrollContainer.clientHeight,
-        ) <= 1;
-      console.log('isAtBottom', isAtBottom);
+      // const isAtBottom =
+      //   Math.abs(
+      //     scrollContainer.scrollHeight + scrollContainer.scrollTop - scrollContainer.clientHeight,
+      //   ) <= 1;
+      const isAtTop = scrollContainer.scrollTop <= 1;
+      console.log('isAtTop', isAtTop);
 
-      if (isAtBottom && hasMore && !dataLoading) {
+      if (isAtTop && hasMore && !dataLoading) {
         loadMoreData();
       }
     }
@@ -242,18 +243,15 @@ const Draw: React.FC = () => {
         sort: 'submitTime,desc',
       });
 
-      // 判断是否还有更多可以优化
-      if (newTasks.length === PAGE_SIZE) {
-        setTasks((prevTasks) => [...newTasks, ...prevTasks]);
-        setHasMore(true);
-        setPage(page + 1);
-      } else if (newTasks.length === 0) {
+      if (newTasks.length < PAGE_SIZE) {
         setHasMore(false);
-        // message.warning('没有更多数据');
       } else {
-        setTasks((prevTasks) => [...newTasks, ...prevTasks]);
-        setHasMore(false);
+        setHasMore(true);
       }
+      // 判断是否还有更多可以优化
+      setTasks((prevTasks) => [...newTasks, ...prevTasks]);
+      setList((prevList) => [...newTasks, ...prevList]); // 同步更新渲染列表
+      setPage((prevPage) => prevPage + 1);
     } catch (error) {
       message.error('加载失败');
     } finally {
@@ -293,12 +291,11 @@ const Draw: React.FC = () => {
         sort: 'submitTime,desc',
       });
       setTasks(newTasks);
+      setList(newTasks); // 同步更新渲染列表
       scrollToBottom(); // 每次切换账号并加载数据后滚动到底部
       if (newTasks.length === PAGE_SIZE) {
         setPage(2); // 每次切换账号后, 重置分页
         setHasMore(true);
-      } else if (newTasks.length === 0) {
-        setHasMore(false);
       } else {
         setHasMore(false);
       }
@@ -871,9 +868,19 @@ const Draw: React.FC = () => {
         ref={scrollRef} // 增加滚动触发器
         id="task-panel"
         onScroll={handleScroll}
-        style={{ overflow: 'auto', display: 'flex', flexDirection: 'column-reverse' }}
+        style={{
+          overflow: 'auto',
+          display: 'flex',
+          flex: '1 1 0%',
+          flexDirection: 'column',
+        }}
         loading={dataLoading}
       >
+        {dataLoading && (
+          <div style={{ textAlign: 'center', padding: '10px' }}>
+            <Spin tip="Loading" />
+          </div>
+        )}
         <List
           dataSource={tasks}
           renderItem={(task: any) => (
@@ -903,11 +910,6 @@ const Draw: React.FC = () => {
             </List.Item>
           )}
         />
-        {dataLoading && (
-          <div style={{ textAlign: 'center', padding: '10px' }}>
-            <Spin tip="Loading" />
-          </div>
-        )}
       </Card>
     );
   };
