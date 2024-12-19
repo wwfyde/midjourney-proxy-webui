@@ -1,4 +1,6 @@
-import { Menu, Space } from 'antd';
+import { useIntl } from '@umijs/max';
+import { Divider, Menu, Space } from 'antd';
+import styles from './ChannelList.less';
 
 interface ChannelListProps {
   accounts: any[];
@@ -7,56 +9,71 @@ interface ChannelListProps {
 }
 
 const ChannelList: React.FC<ChannelListProps> = ({ accounts, curAccount, onAccountChange }) => {
+  const intl = useIntl();
+
   return (
     <div style={{ padding: '8px' }}>
-      {/* <Typography.Title level={5} style={{ marginBottom: '16px' }}>
-          频道列表
-        </Typography.Title> */}
-
       <Space direction="vertical" style={{ width: '100%' }}>
-        {/* 统计信息 */}
-        {/* <Card size="small">
-            <Statistic 
-              title="可用频道" 
-              value={accounts.filter(acc => acc.enable && acc.running).length}
-              suffix={`/ ${accounts.length}`}
-            />
-          </Card> */}
-
-        {/* 频道列表 */}
         <Menu
           mode="inline"
           selectedKeys={curAccount ? [curAccount] : ['']}
-          defaultSelectedKeys={['']} // 设置默认选中项
-          //   items={accounts.map((account) => ({
-          //     key: account.channelId,
-          //     label: (
-          //       <Tooltip
-          //         title={account.enable && account.running ? '点击查看任务' : '频道不可用'}
-          //         placement="right"
-          //       >
-          //         <Space>
-          //           {account.running ? (
-          //             <CheckCircleOutlined style={{ color: '#52c41a' }} />
-          //           ) : (
-          //             <StopOutlined style={{ color: '#ff4d4f' }} />
-          //           )}
-          //           <span>{account.channelId}</span>
-          //           {account.remark && (
-          //             <Tag style={{ fontSize: '12px', padding: '0 4px' }}>{account.remark}</Tag>
-          //           )}
-          //         </Space>
-          //       </Tooltip>
-          //     ),
-          //     disabled: !account.enable || !account.running,
-          //   }))}
+          defaultSelectedKeys={['']}
           onClick={({ key }) => onAccountChange(key)}
+          className={styles.channelMenu}
+          style={{
+            border: 'none',
+          }}
         >
-          <Menu.Item key="">随机选择频道</Menu.Item>
-          {accounts.map((account) => (
-            <Menu.Item key={account.channelId}>
-              {account.remark ? `${account.remark}-${account.channelId}` : account.channelId}
-            </Menu.Item>
+          <Menu.Item key="">{intl.formatMessage({ id: 'pages.draw2.randomChannel' })}</Menu.Item>
+          <Divider style={{ margin: '8px 0' }} />
+
+          {accounts.map((account, index) => (
+            <>
+              <Menu.Item
+                key={account.channelId}
+                style={{
+                  margin: '4px 0',
+                  borderRadius: '6px',
+                  transition: 'all 0.3s',
+                }}
+              >
+                <div
+                  style={{
+                    padding: '4px 0',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '8px',
+                  }}
+                >
+                  <span
+                    style={{
+                      width: '6px',
+                      height: '6px',
+                      borderRadius: '50%',
+                      backgroundColor: account.running ? '#52c41a' : '#ff4d4f',
+                      marginTop: '6px',
+                    }}
+                  />
+
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <span style={{ fontSize: '14px', lineHeight: '20px' }}>
+                      {account.channelId}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '12px',
+                        lineHeight: '16px',
+                        color: '#999',
+                        minHeight: '16px',
+                      }}
+                    >
+                      {account.remark || ' '}
+                    </span>
+                  </div>
+                </div>
+              </Menu.Item>
+              <Divider style={{ margin: '8px 0' }} />
+            </>
           ))}
         </Menu>
       </Space>

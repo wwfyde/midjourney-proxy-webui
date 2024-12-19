@@ -1,0 +1,28 @@
+.channelMenu {
+  :global {
+    .ant-menu-item {
+      // 菜单项样式
+      margin: 8px 0 !important;
+      padding: 0 12px !important;
+      height: auto !important;
+      line-height: 1.5 !important;
+      min-height: 52px !important; // 设置最小高度确保两行文字显示
+      
+      // 悬停效果
+      &:hover {
+        background-color: #f5f5f5 !important;
+      }
+      
+      // 选中状态
+      &.ant-menu-item-selected {
+        background-color: #e6f7ff !important;
+        border-right: 3px solid #1890ff !important;
+      }
+    }
+
+    // 移除默认的选中边框
+    .ant-menu-item::after {
+      display: none !important;
+    }
+  }
+} 

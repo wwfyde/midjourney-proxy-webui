@@ -65,7 +65,7 @@ const Draw: React.FC = () => {
   const [swapImages2, setSwapImages2] = useState<UploadFile[]>([]);
 
   const [loadingButton, setLoadingButton] = useState('');
-  const [submitLoading, setSubxmitLoading] = useState(false);
+  const [submitLoading, setSubmitLoading] = useState(false);
   const [waitTaskIds] = useState(new Set<string>());
 
   const [modalVisible, setModalVisible] = useState(false);
@@ -1231,8 +1231,15 @@ const Draw: React.FC = () => {
             placeholder="Prompt"
             value={prompt}
             onChange={handlePromptChange}
-            onPressEnter={submit}
+            // onPressEnter={submit}
             autoSize={{ minRows: 1, maxRows: 12 }}
+            onKeyDown={(e) => {
+              // 如果是 Shift + Enter，允许换行
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault(); // 阻止默认换行
+                submit(); // 提交
+              }
+            }}
           />
           <Button type="primary" onClick={submit} loading={submitLoading}>
             {intl.formatMessage({ id: 'pages.draw.submitTask' })}
@@ -1331,8 +1338,15 @@ const Draw: React.FC = () => {
             placeholder="Prompt"
             value={prompt}
             onChange={handlePromptChange}
-            onPressEnter={submit}
+            // onPressEnter={submit}
             autoSize={{ minRows: 1, maxRows: 12 }}
+            onKeyDown={(e) => {
+              // 如果是 Shift + Enter，允许换行
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault(); // 阻止默认换行
+                submit(); // 提交
+              }
+            }}
           />
           <Button type="primary" onClick={submit} loading={submitLoading}>
             {intl.formatMessage({ id: 'pages.draw.submitTask' })}
@@ -1662,7 +1676,7 @@ const Draw: React.FC = () => {
               }}
             >
               <img src="./midjourney.webp" alt="logo" style={{ width: 20, marginRight: 8 }} />
-              {!collapsed && <span>频道列表</span>}
+              {!collapsed && <span>{intl.formatMessage({ id: 'pages.draw2.channelList' })}</span>}
             </div>
 
             {/* 右侧折叠按钮 */}

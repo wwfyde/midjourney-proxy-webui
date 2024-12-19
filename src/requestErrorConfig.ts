@@ -115,7 +115,7 @@ export const errorConfig: RequestConfig = {
         'Mj-Api-Secret': MJ_API_SECRET ? MJ_API_SECRET : '', // 将密码作为自定义头部
         'Accept-Language': locale === 'zh-CN' ? 'zh-CN' : 'en-US',
       };
-      console.log('MJ_API_SECRET', MJ_API_SECRET);
+      // console.log('MJ_API_SECRET', MJ_API_SECRET);
       return { ...config };
     },
   ],
